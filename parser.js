@@ -1,0 +1,245 @@
+var split = require('split');
+
+var score = {
+    metadata: {},
+    notes: []
+};
+var wav_map = {};
+var events = [];
+var section;
+var lineno = 0;
+
+var partial_holds = [], partial_slide_a, partial_slide_b;
+
+var header_handler = {
+    bpm: function(bpm_str) {
+        return parseInt(bpm_str);
+    }
+};
+
+var track_map = [6, 1, 2, 3, 4, 5, 8];
+
+function identity(arg) {
+    return arg;
+}
+
+function parseHeader(line) {
+    var entities = line.split(' ');
+    var key = entities[0].substr(1);
+    if(key.startsWith('WAV')) {
+        wav_map[key.substr(3)] = entities.slice(1).join(' ').replace(/\.wav$/, '');
+    }
+    else {
+        score.metadata[key.toLowerCase()] = (header_handler[key.toLowerCase()] || identity)(entities.slice(1).join(' ').toLowerCase());
+    }
+}
+
+function parseData(line) {
+    var entities = line.substr(1).split(':');
+    var bar_idx = parseInt(entities[0].substr(0, 3)),
+        event_type = parseInt(entities[0].substr(3, 1)),
+        track_idx = track_map.indexOf(parseInt(entities[0].substr(4)));
+    var beats = entities[1].match(/../g);
+    var denominator = beats.length;
+    if(track_idx == -1) {
+        throw "Invalid track index at line " + lineno;
+    }
+    for(var i = 0; i < beats.length; i++) {
+        if(beats[i] !== '00') {
+            events.push({
+                bar_idx: bar_idx,
+                event_type: event_type,
+                track_idx: track_idx,
+                denominator: denominator,
+                beat_idx: i,
+                command: beats[i]
+            });
+        }
+    }
+}
+
+function noteCompare(a, b) {
+    return (a.bar_idx + a.beat_idx / a.denominator) - (b.bar_idx + b.beat_idx / b.denominator);
+}
+
+function processNotes() {
+    events.sort(noteCompare);
+    for(var i = 0; i < events.length; i++) {
+        var event = events[i];
+        var note = {
+            time: {
+                bar_idx: event.bar_idx,
+                beat_idx: event.beat_idx,
+                denominator: event.denominator
+            },
+            track_idx: event.track_idx
+        }
+        if(event.event_type == 0) {
+            switch(wav_map[event.command]) {
+                case (score.metadata.bgm || 'bgm002'):
+                    note.type = "special";
+                    note.command = "bgm";
+                    score.notes.push(note);
+                    break;
+                case 'cmd_fever_ready':
+                    note.type = "special";
+                    note.command = "fever_ready";
+                    score.notes.push(note);
+                    break;
+                case 'cmd_fever_start':
+                    note.type = "special";
+                    note.command = "fever_start";
+                    score.notes.push(note);
+                    break;
+                case 'cmd_fever_checkpoint':
+                    note.type = "special";
+                    note.command = "fever_checkpoint";
+                    score.notes.push(note);
+                    break;
+                case 'cmd_fever_end':
+                    note.type = "special";
+                    note.command = "fever_end";
+                    score.notes.push(note);
+                    break;
+                default:
+                    throw "Unkown command " + event.command;
+            }
+        }
+        else if(event.event_type == 1) {
+            switch(wav_map[event.command]) {
+                case 'flick':
+                    note.is_flick = true;
+                case 'skill':
+                    if(wav_map[event.command] === 'skill') {
+                        note.is_skill = true;
+                    }
+                case 'bd':
+                    note.type = "tap";
+                    score.notes.push(note);
+                    break;
+                case 'fever_note_flick':
+                    note.is_flick = true;
+                case 'fever_note':
+                    note.is_fever = true;
+                    note.type = "tap";
+                    score.notes.push(note);
+                    break;
+                case 'slide_a':
+                    if(!partial_slide_a) {
+                        var copy = Object.assign({}, note);
+                        copy.type = "slide";
+                        copy.ticks = [];
+                        partial_slide_a = copy;
+                        score.notes.push(copy);
+                    }
+                    partial_slide_a.ticks.push(note);
+                    break;
+                case 'slide_end_a':
+                    partial_slide_a.ticks.push(note);
+                    partial_slide_a = null;
+                    break;
+                case 'slide_b':
+                    if(!partial_slide_b) {
+                        var copy = Object.assign({}, note);
+                        copy.type = "slide";
+                        copy.ticks = [];
+                        partial_slide_b = copy;
+                        score.notes.push(copy);
+                    }
+                    partial_slide_b.ticks.push(note);
+                    break;
+                case 'slide_end_b':
+                    partial_slide_b.ticks.push(note);
+                    partial_slide_b = null;
+                    break;
+                default:
+                    throw "Unkown command " + event.command;
+            }
+        }
+        else if(event.event_type == 5) {
+            var partial_note = partial_holds[event.track_idx] || Object.assign({}, note);
+            switch(wav_map[event.command]) {
+                case 'fever_note_flick':
+                    partial_note.is_fever = true;
+                case 'flick':
+                    partial_note.is_flick = true;
+                    partial_note.ticks.push(note);
+                    partial_holds[event.track_idx] = null;
+                    break;
+                case 'fever_note':
+                    partial_note.is_fever = true;
+                case 'skill':
+                    if(wav_map[event.command] === 'skill') {
+                        partial_note.is_skill = true;
+                    }
+                case 'bd':
+                    if(partial_holds[event.track_idx]) {
+                        partial_note.ticks.push(note);
+                        partial_holds[event.track_idx] = null;
+                    }
+                    else {
+                        partial_holds[event.track_idx] = partial_note;
+                        partial_note.type = 'slide';
+                        partial_note.ticks = [note];
+                        score.notes.push(partial_note);
+                    }
+                    break;
+                default:
+                    throw "Unkown command " + event.command;
+            }
+        }
+        else {
+            throw "Unkown event type " + event.event_type;
+        }
+    }
+    //Check if anything leftover
+    for(var i = 0; i < 7; i++) {
+        if(partial_holds[i]) {
+            throw "Unended slide when EOF is encountered";
+        }
+    }
+    if(partial_slide_a || partial_slide_b) {
+        throw "Unended slide when EOF is encountered";
+    }
+}
+
+function processLine(line) {
+    lineno++;
+    line = line.trim();
+    if(!line.length) {
+        return;
+    }
+    if(line.startsWith('*-')) {
+        if(line.endsWith('HEADER FIELD')) {
+            section = 'HEADER'
+        }
+        else if(line.endsWith('MAIN DATA FIELD')) {
+            section = 'MAIN DATA'
+        }
+        else {
+            throw "Unknown field definition at line " + lineno;
+        }
+    }
+    else if(line.startsWith('#')) {
+        switch(section) {
+            case 'HEADER':
+                parseHeader(line);
+                break;
+            case 'MAIN DATA':
+                parseData(line);
+                break;
+            default:
+        }
+    }
+    else {
+        throw "Unknown entity at line " + lineno;
+    }
+}
+
+process.stdin
+    .pipe(split())
+    .on('data', processLine)
+    .on('end', function() {
+        processNotes();
+        process.stdout.write(JSON.stringify(score));
+    });

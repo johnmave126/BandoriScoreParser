@@ -1,0 +1,17 @@
+{
+  "name": "bandori_score_parser",
+  "version": "1.0.0",
+  "description": "Parse Bandori Score file",
+  "main": "parser.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "bandori"
+  ],
+  "author": "Shuhao Tan",
+  "license": "MIT",
+  "dependencies": {
+    "split": "^1.0.0"
+  }
+}
