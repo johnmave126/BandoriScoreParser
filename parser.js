@@ -1,4 +1,6 @@
 var split = require('split');
+var commander = require('commander');
+var fs = require('fs');
 
 var score = {
     metadata: {},
@@ -236,10 +238,57 @@ function processLine(line) {
     }
 }
 
+var musicInfo;
+var diffNames = ['easy', 'normal', 'hard', 'expert'];
+
+function readMusicDb() {
+    var file = commander.musics;
+    if (file === undefined)
+        return;
+
+    musicDb = JSON.parse(fs.readFileSync(file, 'utf8'));
+    musicInfo = musicDb.find(function (m) {
+        return m.bgmId === score.metadata.bgm;
+    });
+}
+
+function processMusicData() {
+    if (musicInfo === undefined)
+        return;
+    
+    score.metadata.title = musicInfo.title;
+}
+
+function processDifficulty() {
+    var diff = commander.difficulty;
+    if (diff === undefined)
+        return;
+    console.log(diff);
+    console.log(typeof diff);
+    diff = diffNames.indexOf(diff.toLowerCase());
+    if (diff < 0)
+        throw "Invalid difficulity";
+    
+    score.metadata.difficulty = diffNames[diff];
+    
+    if (musicInfo === null)
+        return;
+    score.metadata.level = Number(musicInfo.levels[diff]);
+    score.metadata.combo = Number(musicInfo.combos[diff]);
+}
+
+commander
+    .option('-m, --musics [file]', 'Music information file')
+    .option('-d, --difficulty [diff]', 'Difficulity, must be one of easy, normal, hard and expert')
+    .parse(process.argv);
+
 process.stdin
     .pipe(split())
     .on('data', processLine)
     .on('end', function() {
         processNotes();
+        readMusicDb();
+        processMusicData();
+        processDifficulty();
         process.stdout.write(JSON.stringify(score));
     });

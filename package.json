@@ -12,6 +12,7 @@
   "author": "Shuhao Tan",
   "license": "MIT",
   "dependencies": {
+    "commander": "^2.9.0",
     "split": "^1.0.0"
   }
 }
