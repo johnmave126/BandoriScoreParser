@@ -253,7 +253,7 @@ function readMusicDb() {
 
     musicDb = JSON.parse(fs.readFileSync(file, 'utf8'));
     musicInfo = musicDb.find(function (m) {
-        return m.bgmId === score.metadata.bgm;
+        return m.bgmId === 'bgm' + score.metadata.bgmID;
     });
 }
 
@@ -274,7 +274,7 @@ function processDifficulty() {
     
     score.metadata.difficulty = diffNames[diff];
     
-    if (musicInfo === null)
+    if (musicInfo === undefined)
         return;
     score.metadata.level = Number(musicInfo.levels[diff]);
     score.metadata.combo = Number(musicInfo.combos[diff]);
