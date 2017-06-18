@@ -31,8 +31,9 @@ function parseHeader(line) {
     var value = entities.slice(1).join(' ');
     if(key.startsWith('WAV')) {
         wav_map[key.substr(3)] = value.replace(/\.wav$/, '');
-        if(value.startsWith('bgm')) {
+        if(value.toLowerCase().startsWith('bgm')) {
             score.metadata['bgmID'] = value.substr(3, 3);
+            wav_map[key.substr(3)] = 'bgm';
         }
     }
     else {
@@ -82,7 +83,7 @@ function processNotes() {
         }
         if(event.event_type == 0) {
             switch(wav_map[event.command]) {
-                case 'bgm' + score.metadata['bgmID']:
+                case 'bgm':
                     note.type = "special";
                     note.command = "bgm";
                     score.notes.push(note);
@@ -198,15 +199,6 @@ function processNotes() {
         else {
             console.warn("Unkown event type " + event.event_type);
         }
-    }
-    //Check if anything leftover
-    for(var i = 0; i < 7; i++) {
-        if(partial_holds[i]) {
-            throw "Unended slide when EOF is encountered";
-        }
-    }
-    if(partial_slide_a || partial_slide_b) {
-        throw "Unended slide when EOF is encountered";
     }
 }
 
