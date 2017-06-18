@@ -239,10 +239,13 @@ var musicInfo;
 var diffNames = ['easy', 'normal', 'hard', 'expert'];
 
 function readMusicDb() {
+    if (commander.id !== undefined)
+        score.metadata.bgmID = commander.id;
+
     var file = commander.musics;
     if (file === undefined)
         return;
-
+    
     musicDb = JSON.parse(fs.readFileSync(file, 'utf8'));
     musicInfo = musicDb.find(function (m) {
         return m.bgmId === 'bgm' + score.metadata.bgmID;
@@ -275,6 +278,7 @@ function processDifficulty() {
 commander
     .option('-m, --musics [file]', 'Music information file')
     .option('-d, --difficulty [diff]', 'Difficulity, must be one of easy, normal, hard and expert')
+    .option('-i, --id [id]', 'Music id')
     .parse(process.argv);
 
 process.stdin
