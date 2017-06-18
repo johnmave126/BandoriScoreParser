@@ -28,11 +28,15 @@ function identity(arg) {
 function parseHeader(line) {
     var entities = line.split(' ');
     var key = entities[0].substr(1);
+    var value = entities.slice(1).join(' ');
     if(key.startsWith('WAV')) {
-        wav_map[key.substr(3)] = entities.slice(1).join(' ').replace(/\.wav$/, '');
+        wav_map[key.substr(3)] = value.replace(/\.wav$/, '');
+        if(value.startsWith('bgm')) {
+            score.metadata['bgmID'] = value.substr(3, 3);
+        }
     }
     else {
-        score.metadata[key.toLowerCase()] = (header_handler[key.toLowerCase()] || identity)(entities.slice(1).join(' ').toLowerCase());
+        score.metadata[key.toLowerCase()] = (header_handler[key.toLowerCase()] || identity)(value.toLowerCase());
     }
 }
 
@@ -78,7 +82,7 @@ function processNotes() {
         }
         if(event.event_type == 0) {
             switch(wav_map[event.command]) {
-                case (score.metadata.bgm || 'bgm002'):
+                case 'bgm' + score.metadata['bgmID']:
                     note.type = "special";
                     note.command = "bgm";
                     score.notes.push(note);
@@ -104,21 +108,11 @@ function processNotes() {
                     score.notes.push(note);
                     break;
                 default:
-                    throw "Unkown command " + event.command;
+                    console.warn("Unkown command " + event.command);
             }
         }
         else if(event.event_type == 1) {
             switch(wav_map[event.command]) {
-                case 'flick':
-                    note.is_flick = true;
-                case 'skill':
-                    if(wav_map[event.command] === 'skill') {
-                        note.is_skill = true;
-                    }
-                case 'bd':
-                    note.type = "tap";
-                    score.notes.push(note);
-                    break;
                 case 'fever_note_flick':
                     note.is_flick = true;
                 case 'fever_note':
@@ -154,8 +148,17 @@ function processNotes() {
                     partial_slide_b.ticks.push(note);
                     partial_slide_b = null;
                     break;
+                case 'flick':
+                    note.is_flick = true;
+                case 'skill':
+                    if(wav_map[event.command] === 'skill') {
+                        note.is_skill = true;
+                    }
+                case 'bd':
                 default:
-                    throw "Unkown command " + event.command;
+                    note.type = "tap";
+                    score.notes.push(note);
+                    break;
             }
         }
         else if(event.event_type == 5) {
@@ -165,6 +168,9 @@ function processNotes() {
                     partial_note.is_fever = true;
                 case 'flick':
                     partial_note.is_flick = true;
+                    if(!partial_note.ticks) {
+                        console.warn(event);
+                    }
                     partial_note.ticks.push(note);
                     partial_holds[event.track_idx] = null;
                     break;
@@ -175,6 +181,7 @@ function processNotes() {
                         partial_note.is_skill = true;
                     }
                 case 'bd':
+                default:
                     if(partial_holds[event.track_idx]) {
                         partial_note.ticks.push(note);
                         partial_holds[event.track_idx] = null;
@@ -186,12 +193,10 @@ function processNotes() {
                         score.notes.push(partial_note);
                     }
                     break;
-                default:
-                    throw "Unkown command " + event.command;
             }
         }
         else {
-            throw "Unkown event type " + event.event_type;
+            console.warn("Unkown event type " + event.event_type);
         }
     }
     //Check if anything leftover
@@ -263,8 +268,6 @@ function processDifficulty() {
     var diff = commander.difficulty;
     if (diff === undefined)
         return;
-    console.log(diff);
-    console.log(typeof diff);
     diff = diffNames.indexOf(diff.toLowerCase());
     if (diff < 0)
         throw "Invalid difficulity";
