@@ -272,7 +272,6 @@ function processDifficulty() {
     if (musicInfo === undefined)
         return;
     score.metadata.level = Number(musicInfo.levels[diff]);
-    score.metadata.combo = Number(musicInfo.combos[diff]);
 }
 
 commander
@@ -286,6 +285,9 @@ process.stdin
     .on('data', processLine)
     .on('end', function() {
         processNotes();
+        score.metadata.combo = score.notes.reduce(function(n, x) {
+            return n + (x.type=='tap' ? 1 : (x.type=='slide' ? x.ticks.length : 0));
+        }, 0);
         readMusicDb();
         processMusicData();
         processDifficulty();
