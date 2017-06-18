@@ -9,12 +9,11 @@ var musics = obj.musicList.entries;
 var diffList = obj.musicDifficultyList.entries;
 
 var diffs = diffList.map(function(x) {
-    return {id: x.musicID, diff: x.difficulty, combo: x.combo, level: x.level};
+    return {id: x.musicID, diff: x.difficulty, level: x.level};
 }).reduce(function(acc, x) {
     var y = acc[x.id] || {};
     return Object.assign(acc, {[x.id]: Object.assign(y, {
-        level: Object.assign(y.level || {}, {[x.diff]: x.level}),
-        combo: Object.assign(y.combo || {}, {[x.diff]: x.combo})
+        level: Object.assign(y.level || {}, {[x.diff]: x.level})
     })});
 }, {});
 
@@ -25,7 +24,6 @@ musics.forEach(function (music) {
         return;
     
     music.levels = [diff.level.easy, diff.level.normal, diff.level.hard, diff.level.expert];
-    music.combos = [diff.combo.easy, diff.combo.normal, diff.combo.hard, diff.combo.expert];
 });
 
 process.stdout.write(JSON.stringify(musics));
