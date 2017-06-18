@@ -30,7 +30,7 @@ ForEach ($di in $root.GetDirectories()) {
         $pngName = $fi.FullName.Replace(".txt", ".png")
         #fuck powershell encoding
         #Get-Content $fi.FullName | node.exe ..\parser.js -m $MusicDb -d $diff -i $musicId > $jsonName
-        cmd /c "node ..\parser.js -m `"$MusicDb`" -d $diff < `"$fullName`" > `"$jsonName`""
+        cmd /c "node ..\parser.js -m `"$MusicDb`" -d $diff -i $musicId < `"$fullName`" > `"$jsonName`""
 
         & $Visualizer $jsonName $pngName
         if (-Not $KeepJson) {
